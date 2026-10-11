@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Carnival Arch — Photo to 3D</title>
+<title>Arch 3D — AI Generated from Photo</title>
 <style>
   body { margin: 0; overflow: hidden; background: #0a0a18; font-family: system-ui, sans-serif; }
   #info {
@@ -19,97 +19,75 @@
 </head>
 <body>
 <div id="info">
-  <b>Carnival Arch</b> — built from your photo<br>
-  Texture = the actual photo · Geometry = arch shape from photo<br>
+  <b>Carnival Arch</b> — AI 3D from your photo<br>
   Drag to orbit · Scroll to zoom
 </div>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d1526);
 
 const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 200);
-camera.position.set(0, 3.5, 12);
+camera.position.set(3, 2.5, 6);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 3, 0);
+controls.target.set(0, 1, 0);
 controls.update();
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-const dir = new THREE.DirectionalLight(0xfff2dd, 0.8);
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dir = new THREE.DirectionalLight(0xfff2dd, 1.0);
 dir.position.set(5, 10, 8);
 scene.add(dir);
+const fill = new THREE.DirectionalLight(0xaabbdd, 0.4);
+fill.position.set(-5, 5, -5);
+scene.add(fill);
 
 // Ground
 const ground = new THREE.Mesh(
-  new THREE.CircleGeometry(25, 48),
+  new THREE.CircleGeometry(10, 48),
   new THREE.MeshStandardMaterial({ color: 0x1a2e12, roughness: 1 })
 );
 ground.rotation.x = -Math.PI/2;
+ground.position.y = -1;
 scene.add(ground);
 
-// Load the actual photo as texture
-const texLoader = new THREE.TextureLoader();
-texLoader.load('arch-photo-cropped.jpg', (photoTex) => {
-  photoTex.colorSpace = THREE.SRGBColorSpace;
-
-  // Arch shape: outline of the arch from the photo
-  // Photo is 1053x713, arch spans most of width, top is peaked
-  const W = 10, H = 6.8; // world units matching photo aspect
-
-  // Create arch as extruded shape with photo texture on front
-  const shape = new THREE.Shape();
-  // Outer outline (counterclockwise): start bottom-left
-  shape.moveTo(-W/2, 0);
-  shape.lineTo(-W/2, H*0.62);           // left pillar up
-  shape.lineTo(-W*0.32, H*0.78);        // roof left slope
-  shape.lineTo(0, H);                    // peak
-  shape.lineTo(W*0.32, H*0.78);         // roof right slope
-  shape.lineTo(W/2, H*0.62);            // right pillar up
-  shape.lineTo(W/2, 0);                  // right pillar down
-  shape.lineTo(W*0.32, 0);              // inner right
-  shape.lineTo(W*0.32, H*0.55);         // inner opening right
-  shape.lineTo(-W*0.32, H*0.55);        // inner opening top
-  shape.lineTo(-W*0.32, 0);             // inner left down
-  shape.closePath();
-
-  const depth = 1.2;
-  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 2 });
-
-  // UV map front face to photo
-  // ExtrudeGeometry UVs are in world coords; remap to 0-1
-  const uv = geo.attributes.uv;
-  const pos = geo.attributes.position;
-  // Find bounds
-  let minX=1e9, maxX=-1e9, minY=1e9, maxY=-1e9;
-  for (let i=0; i<pos.count; i++) {
-    minX=Math.min(minX,pos.getX(i)); maxX=Math.max(maxX,pos.getX(i));
-    minY=Math.min(minY,pos.getY(i)); maxY=Math.max(maxY,pos.getY(i));
-  }
-  for (let i=0; i<uv.count; i++) {
-    // Only remap front/back faces (z near 0 or depth)
-    const z = pos.getZ(i);
-    if (z < 0.1 || z > depth-0.1) {
-      uv.setXY(i,
-        (pos.getX(i)-minX)/(maxX-minX),
-        (pos.getY(i)-minY)/(maxY-minY)
-      );
+// Load the AI-generated OBJ
+const loader = new OBJLoader();
+loader.load('arch_masked_0.obj', (obj) => {
+  // Center and scale
+  const box = new THREE.Box3().setFromObject(obj);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const scale = 4 / maxDim;
+  
+  obj.position.sub(center.multiplyScalar(scale));
+  obj.scale.setScalar(scale);
+  obj.position.y += 1;
+  
+  // Enhance materials for vertex colors
+  obj.traverse((child) => {
+    if (child.isMesh) {
+      child.material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.8,
+        metalness: 0.1
+      });
     }
-  }
-
-  const mat = new THREE.MeshStandardMaterial({ map: photoTex, roughness: 0.85 });
-  const arch = new THREE.Mesh(geo, mat);
-  arch.castShadow = true;
-  scene.add(arch);
-
-  // Side/back get a darker red material via second mesh (edges)
-  // Actually the extrude sides will stretch the texture - acceptable for now
+  });
+  
+  scene.add(obj);
+  document.getElementById('info').innerHTML += '<br><span style="color:#7f7">✓ Model loaded</span>';
+}, undefined, (err) => {
+  document.getElementById('info').innerHTML += '<br><span style="color:#f77">✗ Load error</span>';
+  console.error(err);
 });
 
 function animate() {
