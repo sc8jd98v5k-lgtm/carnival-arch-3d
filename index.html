@@ -31,9 +31,8 @@ let seed = 7;
 function rand() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
 
 const scene = new THREE.Scene();
-// Warm night sky — like the photo: deep blue with ambient glow, not pitch black
-scene.background = new THREE.Color(0x1a2340);
-scene.fog = new THREE.Fog(0x1a2340, 35, 80);
+scene.background = new THREE.Color(0x0d1526);
+scene.fog = new THREE.Fog(0x0d1526, 30, 70);
 
 const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 200);
 camera.position.set(6, 4.5, 12);
@@ -48,51 +47,13 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 3.2, 0);
 controls.update();
 
-scene.add(new THREE.AmbientLight(0x9aa0c0, 0.75));
-const moon = new THREE.DirectionalLight(0xbbccdd, 0.5);
+scene.add(new THREE.AmbientLight(0x8a90b0, 0.45));
+const moon = new THREE.DirectionalLight(0xaabbdd, 0.35);
 moon.position.set(-8, 14, 6);
 scene.add(moon);
-const warmKey = new THREE.PointLight(0xffd9a0, 100, 30);
+const warmKey = new THREE.PointLight(0xffd9a0, 80, 25);
 warmKey.position.set(0, 6, 5);
 scene.add(warmKey);
-// Soft fill from behind for depth
-const backFill = new THREE.PointLight(0x88a0ff, 25, 30);
-backFill.position.set(0, 8, -10);
-scene.add(backFill);
-
-// Stars in the night sky
-{
-  const starGeo = new THREE.BufferGeometry();
-  const starPos = [];
-  for (let i = 0; i < 400; i++) {
-    const theta = rand() * Math.PI * 2;
-    const phi = rand() * Math.PI * 0.45;
-    const r = 60;
-    starPos.push(
-      r * Math.sin(phi) * Math.cos(theta),
-      r * Math.cos(phi) * 0.6 + 8,
-      r * Math.sin(phi) * Math.sin(theta)
-    );
-  }
-  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
-  const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xcfd8ff, size: 0.35, transparent: true, opacity: 0.8 }));
-  scene.add(stars);
-  // Moon glow
-  const moonGlow = new THREE.Mesh(
-    new THREE.CircleGeometry(2.2, 32),
-    new THREE.MeshBasicMaterial({ color: 0xe8eeff, transparent: true, opacity: 0.9 })
-  );
-  moonGlow.position.set(-18, 22, -35);
-  moonGlow.lookAt(camera.position);
-  scene.add(moonGlow);
-  const halo = new THREE.Mesh(
-    new THREE.CircleGeometry(4.5, 32),
-    new THREE.MeshBasicMaterial({ color: 0xaabbdd, transparent: true, opacity: 0.18 })
-  );
-  halo.position.set(-18, 22, -35.1);
-  halo.lookAt(camera.position);
-  scene.add(halo);
-}
 
 {
   const g = new THREE.CircleGeometry(25, 64);
